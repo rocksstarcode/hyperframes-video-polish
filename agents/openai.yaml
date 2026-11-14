@@ -1,0 +1,4 @@
+interface:
+  display_name: "Polish and Verify Videos"
+  short_description: "Fix video alignment, staging, motion, and export quality"
+  default_prompt: "Use $video-polish-qa to review and polish this Hyperframes video, then verify the exported MP4."
