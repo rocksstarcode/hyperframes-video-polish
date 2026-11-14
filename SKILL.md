@@ -1,12 +1,12 @@
 ---
 name: video-polish-qa
-description: Use when refining or shipping a Hyperframes (HTML/GSAP) video composition - timestamped visual feedback, off-center or misaligned text, cards, or price groups, uneven card rows, wrapped headings breaking baselines, animations overlapping or jumping, SVG connector lines appearing before their origin, a weak final or closing screen, or a final pass before rendering and verifying the exported MP4 (duration, FPS, codecs, preserved audio).
+description: Use when refining or shipping a Hyperframes HTML video composition (GSAP, CSS, or Anime.js motion) - timestamped visual feedback, off-center or misaligned text, cards, or price groups, uneven card rows, wrapped headings breaking baselines, animations overlapping or jumping, SVG connector lines appearing before their origin, a weak final or closing screen, or a final pass before rendering and verifying the exported MP4 (duration, FPS, codecs, preserved audio).
 license: MIT
 metadata:
   author: "@AdiCoSto"
   x: https://x.com/AdiCoSto
   repository: https://github.com/rocksstarcode/hyperframes-video-polish
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Polish and verify a Hyperframes video
@@ -29,13 +29,19 @@ Use for visual refinements, timestamped feedback, or a final production pass on 
 
 ## Resolve project context
 
-1. Read the project's package scripts and docs before running anything. Confirm the composition entry (HTML/JS/CSS), lint/check/snapshot commands, render command, and where exports belong.
-2. Identify the project's revision convention. Keep new exports distinct and inside the project's output folder; do not overwrite a prior verified cut.
-3. Read the current composition source. Treat docs and earlier review notes as dated evidence; revalidate against the actual source when they disagree.
+1. Read the project's package scripts and docs before running anything. Confirm the composition entry (HTML/JS/CSS), lint/check/snapshot commands, render command, and where exports belong. Run `npx hyperframes compositions` when the project may hold more than one composition, and target the right one (`render -c <file>`).
+2. Record the output spec: format (MP4, WebM, MOV, GIF, HLS, or PNG sequence), canvas size (`data-width`/`data-height` or `--resolution`), and frame rate (`--fps`, else the root `data-fps`, else 30). The export check uses these values.
+3. Identify the project's revision convention. Keep new exports distinct and inside the project's output folder; do not overwrite a prior verified cut.
+4. Read the current composition source. Treat docs and earlier review notes as dated evidence; revalidate against the actual source when they disagree.
 
 ## Diagnose the visible state
 
-1. Inspect the actual composition and feedback frames. Map each timestamp to its scene and timeline actions in the composition's JS; inspect the corresponding CSS.
+1. Inspect the actual composition and feedback frames. Map each timestamp to its clip and animation with the CLI first, then confirm in source:
+   - `npx hyperframes timeline --json`: tracks, clips, and their start/end times.
+   - `npx hyperframes keyframes --selector "<css>" --json`: the GSAP tweens, CSS `@keyframes`, or Anime.js timelines driving an element.
+   - `npx hyperframes keyframes --selector "<css>" --shot <file>.png`: an onion-skin image of the element across time, which shows drift, overshoot, and paths drawn early.
+
+   Then read the matching JS and CSS. Command flags change between versions; check `npx hyperframes <command> --help` before relying on one.
 2. Reproduce the problem at its start, midpoint, and settled state. An offset may be a tween still running rather than a wrong coordinate. Capture both sides of a scene boundary when a transient is involved.
 3. Identify the cause before adding another transform: fixed offsets, mismatched widths, unequal text heights, transform-origin errors, early visibility, or multiple tweens writing the same property. Fix the underlying layout or timing.
 
@@ -60,7 +66,13 @@ Use for visual refinements, timestamped feedback, or a final production pass on 
 
 Remove incidental production labels and repeated filler without removing meaningful sections. Retain billing terms, estimate/range labels, and proof figures that qualify a claim. Generic example cards must not masquerade as live recorded data.
 
-Treat the final screen as a conclusion: brand, price or offer, included usage where applicable, a large properly cased domain or product name, then the closing slogan. Animate the reveal and leave a settled hold. Adapt the structure to the product rather than copying one layout everywhere.
+Treat the final screen as a conclusion, and choose its parts from the film's purpose:
+
+- Product or offer film: brand, price or offer, included usage where applicable, a large properly cased domain, then the slogan.
+- Explainer or tutorial: the one takeaway, then the next step (link, command, or call to action).
+- Brand sting or social clip: logo lockup and handle or domain; nothing that competes with them.
+
+Animate the reveal and leave a settled hold long enough to read. Adapt the structure rather than copying one layout everywhere.
 
 ## Verify before export
 
@@ -68,10 +80,12 @@ Run the project's own commands; the following is a verified pattern, not a guara
 
 ```powershell
 node --check <composition-entry>.js
-npm run lint
-npx --no-install hyperframes check --samples 18 --max-issues 8 --json
+npx --no-install hyperframes lint --json
+npx --no-install hyperframes check --at-transitions --samples 18 --max-issues 8 --json
 npx --no-install hyperframes snapshot --at "<scene-specific times>" --output <review-dir>
 ```
+
+`check` runs lint, runtime errors and missing assets, layout overflow, motion, and contrast in one pass; `--at-transitions` adds samples at every tween start and end, where transient overlaps appear. Use `--range <start>,<end>` to focus on an edited scene. Prefer the project's own `npm run` wrappers when they exist.
 
 Choose timestamps from the film's beats and boundaries, not from another project. Inspect the images, not only the exit status. Check early/mid/settled states, the longest label, every price or data card revealed, and the closing hold. Watch revised motion in preview or short output clips when stills cannot resolve timing or trajectory concerns.
 
@@ -81,21 +95,25 @@ Interpret reports honestly: layout/contrast/craft sampling does not prove every 
 
 Quote paths containing spaces. Choose a distinct output name; a configured render command may overwrite its default output. Keep revisions and companion exports in the project's documented output folder. GPU encoding (`--gpu`) and browser GPU rendering (`--no-browser-gpu`) are independent choices; more workers are not automatically faster or safer. Validate performance flags on the machine doing the render.
 
-Run the render in the foreground, track it to completion, then verify the exported file with the bundled portable script (Node 18+, `ffmpeg`/`ffprobe` on PATH):
+Run the render in the foreground, track it to completion, then verify the export with the bundled script (Node 18+, `ffmpeg`/`ffprobe` on PATH). Always pass the output spec recorded earlier; width, height, and FPS are only reported, not enforced, when omitted:
 
 ```powershell
-node <skill-dir>/scripts/verify-video.mjs --video "<output>.mp4" --expected-duration <seconds>
+node <skill-dir>/scripts/verify-video.mjs --video "<output>" --expected-duration <seconds> --fps <fps> --width <px> --height <px>
 ```
 
-On Windows, the equivalent PowerShell helper is also bundled:
+The format is detected from the path: `.mp4`, `.webm`, `.mov`, `.gif`, an HLS `.m3u8` or its output folder, or a PNG-sequence folder. It checks codecs for that format, size, frame rate, duration and frame count from the video stream (container duration includes AAC padding), audio/video drift (limit 0.25 s, `--max-audio-drift`), and a full decode of every frame.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File <skill-dir>/scripts/verify-video.ps1 -Video "<output>.mp4" -ExpectedDuration <seconds>
-```
+| Export | Add |
+| --- | --- |
+| No soundtrack | `--no-audio` (otherwise a missing audio stream fails) |
+| Transparent MOV, WebM, or PNG sequence | `--alpha` to require the alpha channel (the composition background must itself be transparent; GIF transparency cannot be checked) |
+| GIF | Frame rate is matched to GIF's centisecond timing; frame count is not enforced |
+| PNG sequence | `--fps` is required to check duration |
+| Visual-only revision | `--reference "<previous-cut>"` to require byte-identical encoded audio |
 
-It checks dimensions, FPS, video-stream duration and frame count, H.264/AAC streams, audio/video length drift (default limit 0.25 s, `--max-audio-drift`), and a full decode. Defaults are 1920x1080 at 60 FPS; pass `--width`, `--height`, and `--fps` (or `-ExpectedWidth`, `-ExpectedHeight`, `-ExpectedFps`) to match the render command. For a silent export, add `--no-audio` (`-NoAudio`). For a visual-only revision that must preserve the existing encoded audio, add `--reference "<previous-cut>.mp4"` (Node) or `-ReferenceVideo "<previous-cut>.mp4"` (PowerShell); this compares AAC payload hashes. Adapt expectation parameters to other formats.
+On Windows, `powershell -NoProfile -ExecutionPolicy Bypass -File <skill-dir>/scripts/verify-video.ps1 -Video "<output>" -ExpectedDuration <s> -ExpectedFps <fps> -ExpectedWidth <px> -ExpectedHeight <px>` runs the same checks (`-NoAudio`, `-Alpha`, `-ReferenceVideo`, `-Format`) and returns an object.
 
-Extract and inspect key frames from the actual MP4, including proof, pricing, and closing. Listen across edited boundaries if audio timing or content changed. Preserve source audio, evidence images, and earlier exports. Never fix a visual problem by quietly altering the recording.
+Extract and inspect key frames from the actual export, including proof, pricing, and closing. Listen across edited boundaries if audio timing or content changed. Preserve source audio, evidence images, and earlier exports. Never fix a visual problem by quietly altering the recording.
 
 Report what was checked and any unresolved issue. Offer the actual output with an absolute path. Do not state that the user has reviewed the file until they say so.
 
@@ -105,6 +123,7 @@ Report what was checked and any unresolved issue. Offer the actual output with a
 - Judging alignment from a frame captured while a tween is still running.
 - Reusing another film's snapshot timestamps instead of this film's beats and boundaries.
 - Rendering over the previous verified cut, or retiming audio during a visual-only pass.
-- Reporting "verified" from `check` output alone without opening the stills and the MP4 frames.
+- Reporting "verified" from `check` output alone without opening the stills and the exported frames.
+- Verifying against assumed defaults instead of the render's real format, size, and frame rate.
 
-Field-tested on a Hyperframes product film. Revalidate the commands when the framework version or project structure changes; source remains authoritative.
+Field-tested on a Hyperframes product film and on stock `hyperframes init` examples (landscape and portrait, every render format) with Hyperframes 0.8. Revalidate the commands when the framework version or project structure changes; source remains authoritative.

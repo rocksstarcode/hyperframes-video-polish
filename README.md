@@ -36,16 +36,16 @@ Works with Claude Code, Codex, OpenCode, and other agents that load [Agent Skill
 
 ## What it does
 
-- Diagnoses visible problems from the composition source and real frames.
+- Diagnoses visible problems from real frames, Hyperframes' own `timeline` and `keyframes` tools (GSAP, CSS, and Anime.js), and the composition source.
 - Enforces alignment invariants: centered groups, equal-width rows, shared baselines, price-plus-unit widths.
 - Enforces motion invariants: causal staging, safe SVG path hiding, stagger completion math, no conflicting tweens.
 - Tightens narrative and closing screens without stripping billing terms or proof.
-- Runs `hyperframes lint`, `check`, and `snapshot` with honest interpretation of the reports.
-- Verifies the exported MP4: streams, codecs, dimensions, FPS, duration, frame count, audio/video drift, full decode, and optional preserved-audio comparison. Silent exports are supported with `--no-audio`.
+- Runs `hyperframes lint`, `check --at-transitions`, and `snapshot` with honest interpretation of the reports.
+- Verifies the real export in any Hyperframes format — MP4, WebM, MOV, GIF, HLS, or PNG sequence; landscape, portrait, or square; any frame rate: codecs, size, FPS, duration, frame count, audio drift, transparency, a full decode, and an optional preserved-audio comparison.
 
 ## Requirements
 
-- A Hyperframes project with an HTML/CSS/JS composition.
+- A Hyperframes project (tested with Hyperframes 0.8).
 - Node.js 18 or newer for the portable verifier.
 - `ffmpeg` and `ffprobe` on `PATH`.
 - Optional on Windows: PowerShell 5.1 or newer for the bundled `.ps1` verifier.
@@ -92,37 +92,42 @@ The skill resolves your project's entry point, render command, and output folder
 
 ## Verify an export directly
 
-Node (any platform):
+The format is detected from the path. Width, height, and FPS are enforced only when you pass them, so pass the values your render used.
 
 ```bash
-node scripts/verify-video.mjs --video "exports/my film/final.mp4" --expected-duration 48
+# 1080p60 MP4 with narration
+node scripts/verify-video.mjs --video "exports/my film/final.mp4" --expected-duration 48 --fps 60 --width 1920 --height 1080
+
+# Hyperframes defaults: 30 FPS, portrait, no soundtrack
+node scripts/verify-video.mjs --video reel.mp4 --expected-duration 15 --fps 30 --width 1080 --height 1920 --no-audio
+
+# Transparent overlay
+node scripts/verify-video.mjs --video lower-third.mov --alpha --no-audio
+
+# HLS output folder or PNG-sequence folder
+node scripts/verify-video.mjs --video renders/promo-hls
+node scripts/verify-video.mjs --video renders/promo-frames --fps 30 --expected-duration 15
+
+# Visual-only revision: encoded audio must be identical to the previous cut
+node scripts/verify-video.mjs --video v3.mp4 --reference v2.mp4 --json
 ```
 
-Preserve-audio check against an earlier cut:
-
-```bash
-node scripts/verify-video.mjs --video "exports/my film/final.mp4" --expected-duration 48 --reference "exports/my film/previous.mp4" --json
-```
-
-Windows PowerShell:
+Windows PowerShell runs the same checks and returns an object:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-video.ps1 -Video "exports/my film/final.mp4" -ExpectedDuration 48
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-video.ps1 -Video "exports/my film/final.mp4" -ExpectedDuration 48 -ExpectedFps 60
 ```
 
-Both scripts accept custom dimensions and FPS:
+| Format | Video codec | Audio codec |
+| --- | --- | --- |
+| MP4 | H.264 or HEVC | AAC |
+| WebM | VP9, VP8, or AV1 | Opus or Vorbis |
+| MOV | ProRes (Hyperframes' alpha MOV), H.264, or HEVC | AAC or PCM |
+| HLS | H.264 | AAC |
+| GIF | GIF | none |
+| PNG sequence | PNG | none |
 
-```bash
-node scripts/verify-video.mjs --video final.mp4 --width 1080 --height 1920 --fps 30
-```
-
-Silent (music-free, voice-free) export:
-
-```bash
-node scripts/verify-video.mjs --video silent.mp4 --no-audio
-```
-
-Duration is judged from the video stream, not the container: AAC encoder padding commonly makes the container a few tens of milliseconds longer than the picture. Audio/video length drift is reported and fails above 0.25 s (`--max-audio-drift` to change).
+Override with `--video-codec` or `--audio-codec`. Duration is judged from the video stream, not the container, because AAC encoder padding commonly makes the container a few tens of milliseconds longer than the picture. Audio/video drift fails above 0.25 s (`--max-audio-drift`).
 
 ## Scope and limitations
 
