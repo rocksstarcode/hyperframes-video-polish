@@ -8,21 +8,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e8552d?style=for-the-badge)](LICENSE)
 [![Agent Skill](https://img.shields.io/badge/Agent%20Skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20OpenCode-1f1f1f?style=for-the-badge)](#install)
 
-Built by **[@AdiCoSto](https://x.com/AdiCoSto)** · ▶ [Watch the full film](https://github.com/rocksstarcode/hyperframes-video-polish/releases/download/v1.1.0/leadsthatmatter-demo.mp4)
+[![Watch on YouTube](https://img.shields.io/badge/Watch%20the%20film-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=rFsLY9sUA2I)
+
+Built by **[@AdiCoSto](https://x.com/AdiCoSto)**
 
 </div>
 
 ## Made with this skill
 
 <p align="center">
-  <a href="https://github.com/rocksstarcode/hyperframes-video-polish/releases/download/v1.1.0/leadsthatmatter-demo.mp4">
+  <a href="https://www.youtube.com/watch?v=rFsLY9sUA2I">
     <img src="assets/leadsthatmatter-preview.gif" alt="Highlights from the LeadsThatMatter product film: hook, AI agent diagram, prospect cards, per-lead pricing, and the closing $5/month offer" width="100%">
   </a>
 </p>
 
 <p align="center"><b>LeadsThatMatter — AI-powered lead generation starting at $5/month</b><br>
 109-second 1080p60 product film built in Hyperframes and polished with this skill.<br>
-<a href="https://github.com/rocksstarcode/hyperframes-video-polish/releases/download/v1.1.0/leadsthatmatter-demo.mp4">▶ Watch the full video (MP4, 10 MB)</a></p>
+<a href="https://www.youtube.com/watch?v=rFsLY9sUA2I">▶ Watch the full film on YouTube</a> · <a href="https://github.com/rocksstarcode/hyperframes-video-polish/releases/download/v1.1.0/leadsthatmatter-demo.mp4">Download MP4 (10 MB)</a></p>
 
 Every beat above went through the skill's loop: centered price groups and card rows, origin-first connector diagrams, staggered entrances that finish before anything else moves, and a closing screen with a settled hold — then a verified export (1920x1080, 60 FPS, 6540 frames, H.264/AAC, full decode).
 
