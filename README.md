@@ -1,8 +1,36 @@
+<div align="center">
+
 # Hyperframes Video Polish
 
-An agent skill that polishes Hyperframes videos and verifies the actual MP4 export. It fixes layout drift, staged-motion bugs, premature connector paths, weak reading hierarchy, and unfinished closing screens, then checks the rendered file instead of trusting stills alone.
+**An agent skill that turns a rough [Hyperframes](https://github.com/heygen-com/hyperframes) render into a launch-ready product film — and proves it on the actual MP4.**
 
-Works with Claude Code, Codex, OpenCode, and other agents that load Agent Skills.
+[![Follow @AdiCoSto on X](https://img.shields.io/badge/Follow-%40AdiCoSto-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/AdiCoSto)
+[![License: MIT](https://img.shields.io/badge/License-MIT-e8552d?style=for-the-badge)](LICENSE)
+[![Agent Skill](https://img.shields.io/badge/Agent%20Skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20OpenCode-1f1f1f?style=for-the-badge)](#install)
+
+Built by **[@AdiCoSto](https://x.com/AdiCoSto)** · ▶ [Watch the full film](https://github.com/rocksstarcode/hyperframes-video-polish/releases/download/v1.1.0/leadsthatmatter-demo.mp4)
+
+</div>
+
+## Made with this skill
+
+<p align="center">
+  <a href="https://github.com/rocksstarcode/hyperframes-video-polish/releases/download/v1.1.0/leadsthatmatter-demo.mp4">
+    <img src="assets/leadsthatmatter-preview.gif" alt="Highlights from the LeadsThatMatter product film: hook, AI agent diagram, prospect cards, per-lead pricing, and the closing $5/month offer" width="100%">
+  </a>
+</p>
+
+<p align="center"><b>LeadsThatMatter — AI-powered lead generation starting at $5/month</b><br>
+109-second 1080p60 product film built in Hyperframes and polished with this skill.<br>
+<a href="https://github.com/rocksstarcode/hyperframes-video-polish/releases/download/v1.1.0/leadsthatmatter-demo.mp4">▶ Watch the full video (MP4, 10 MB)</a></p>
+
+Every beat above went through the skill's loop: centered price groups and card rows, origin-first connector diagrams, staggered entrances that finish before anything else moves, and a closing screen with a settled hold — then a verified export (1920x1080, 60 FPS, 6540 frames, H.264/AAC, full decode).
+
+## Why
+
+Agents are good at generating motion graphics and bad at noticing that a price is 6 px off-center, that a connector line flashes in before its origin, or that the "final" MP4 has the wrong frame count. This skill gives them the invariants and the verification step that catch those problems.
+
+Works with Claude Code, Codex, OpenCode, and other agents that load [Agent Skills](https://agentskills.io).
 
 ## What it does
 
@@ -11,7 +39,7 @@ Works with Claude Code, Codex, OpenCode, and other agents that load Agent Skills
 - Enforces motion invariants: causal staging, safe SVG path hiding, stagger completion math, no conflicting tweens.
 - Tightens narrative and closing screens without stripping billing terms or proof.
 - Runs `hyperframes lint`, `check`, and `snapshot` with honest interpretation of the reports.
-- Verifies the exported MP4: streams, codecs, dimensions, FPS, duration, frame count, full decode, and optional preserved-audio comparison.
+- Verifies the exported MP4: streams, codecs, dimensions, FPS, duration, frame count, audio/video drift, full decode, and optional preserved-audio comparison. Silent exports are supported with `--no-audio`.
 
 ## Requirements
 
@@ -86,6 +114,14 @@ Both scripts accept custom dimensions and FPS:
 node scripts/verify-video.mjs --video final.mp4 --width 1080 --height 1920 --fps 30
 ```
 
+Silent (music-free, voice-free) export:
+
+```bash
+node scripts/verify-video.mjs --video silent.mp4 --no-audio
+```
+
+Duration is judged from the video stream, not the container: AAC encoder padding commonly makes the container a few tens of milliseconds longer than the picture. Audio/video length drift is reported and fails above 0.25 s (`--max-audio-drift` to change).
+
 ## Scope and limitations
 
 - This is a Hyperframes-focused visual-polish skill, not a general video editor.
@@ -94,6 +130,10 @@ node scripts/verify-video.mjs --video final.mp4 --width 1080 --height 1920 --fps
 - `hyperframes check` may report `motion.enabled: false`; that means motion analysis did not run.
 - GPU and worker flags depend on the machine doing the render; validate them there.
 
+## Author
+
+Made by **[@AdiCoSto](https://x.com/AdiCoSto)**. If this skill saved you a render, follow along on X for more agent skills and Hyperframes builds — and share what you make with it.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

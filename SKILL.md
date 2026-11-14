@@ -1,11 +1,31 @@
 ---
 name: video-polish-qa
-description: Polish and verify Hyperframes videos, fixing alignment, overlapping animation, premature connector paths, reading hierarchy, and closing screens before checking the actual MP4 export.
+description: Use when refining or shipping a Hyperframes (HTML/GSAP) video composition - timestamped visual feedback, off-center or misaligned text, cards, or price groups, uneven card rows, wrapped headings breaking baselines, animations overlapping or jumping, SVG connector lines appearing before their origin, a weak final or closing screen, or a final pass before rendering and verifying the exported MP4 (duration, FPS, codecs, preserved audio).
+license: MIT
+metadata:
+  author: "@AdiCoSto"
+  x: https://x.com/AdiCoSto
+  repository: https://github.com/rocksstarcode/hyperframes-video-polish
+  version: "1.1.0"
 ---
 
 # Polish and verify a Hyperframes video
 
 Use for visual refinements, timestamped feedback, or a final production pass on a Hyperframes composition. Resolve the project's entry point, output folder, and render commands from its own package scripts, README, or agent instructions; do not assume filenames. Preserve audio and scene timing for visual-only work unless a requested change requires retiming.
+
+**Core principle:** find the cause in the source and prove the fix on the rendered MP4. A still that looks right, a clean exit code, or a passing sampler is evidence, not proof.
+
+## Quick reference: symptom to likely cause
+
+| Symptom | Check first |
+| --- | --- |
+| Text or group sits slightly off-center | Guessed `left` instead of a centering helper; lost `xPercent: -50` after a scale/translate tween; negative letter spacing; a unit label left out of the group width |
+| Card row drifts left or right | Start x not derived from `count * cardWidth + (count - 1) * gap` |
+| Icons or lower rows misaligned across cards | One-line vs wrapped headings without a shared reserved title height |
+| Element "jumps" or settles in the wrong place | Two tweens writing the same transform; a still captured mid-tween |
+| Connector line or dot visible too early | Path hidden only by dash offset (round caps leak) or a static base path; diagram not staged origin-first |
+| Row shifts while cards are still entering | Secondary motion starts before `start + (count - 1) * stagger + duration` |
+| Verifier says duration is ~50 ms too long | Container duration includes AAC padding; the bundled verifier judges the video stream |
 
 ## Resolve project context
 
@@ -70,13 +90,21 @@ node <skill-dir>/scripts/verify-video.mjs --video "<output>.mp4" --expected-dura
 On Windows, the equivalent PowerShell helper is also bundled:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-video.ps1 -Video "<output>.mp4" -ExpectedDuration <seconds>
+powershell -NoProfile -ExecutionPolicy Bypass -File <skill-dir>/scripts/verify-video.ps1 -Video "<output>.mp4" -ExpectedDuration <seconds>
 ```
 
-It checks dimensions, FPS, frame count, H.264/AAC streams, and a full decode. For a visual-only revision that must preserve the existing encoded audio, add `--reference "<previous-cut>.mp4"` (Node) or `-ReferenceVideo "<previous-cut>.mp4"` (PowerShell); this compares AAC payload hashes. Adapt expectation parameters to other formats.
+It checks dimensions, FPS, video-stream duration and frame count, H.264/AAC streams, audio/video length drift (default limit 0.25 s, `--max-audio-drift`), and a full decode. Defaults are 1920x1080 at 60 FPS; pass `--width`, `--height`, and `--fps` (or `-ExpectedWidth`, `-ExpectedHeight`, `-ExpectedFps`) to match the render command. For a silent export, add `--no-audio` (`-NoAudio`). For a visual-only revision that must preserve the existing encoded audio, add `--reference "<previous-cut>.mp4"` (Node) or `-ReferenceVideo "<previous-cut>.mp4"` (PowerShell); this compares AAC payload hashes. Adapt expectation parameters to other formats.
 
 Extract and inspect key frames from the actual MP4, including proof, pricing, and closing. Listen across edited boundaries if audio timing or content changed. Preserve source audio, evidence images, and earlier exports. Never fix a visual problem by quietly altering the recording.
 
-Report what was checked and any unresolved issue. Offer the actual output with an absolute path. A queued viewer request does not confirm the user has seen the file.
+Report what was checked and any unresolved issue. Offer the actual output with an absolute path. Do not state that the user has reviewed the file until they say so.
+
+## Common mistakes
+
+- Adding a compensating offset instead of removing the cause (stacked tweens, wrong group width).
+- Judging alignment from a frame captured while a tween is still running.
+- Reusing another film's snapshot timestamps instead of this film's beats and boundaries.
+- Rendering over the previous verified cut, or retiming audio during a visual-only pass.
+- Reporting "verified" from `check` output alone without opening the stills and the MP4 frames.
 
 Field-tested on a Hyperframes product film. Revalidate the commands when the framework version or project structure changes; source remains authoritative.

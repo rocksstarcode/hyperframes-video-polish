@@ -15,6 +15,8 @@ Options:
   --height <px>               Expected video height (default: 1080)
   --fps <rate>                Expected average frame rate (default: 60)
   --reference <path>          Second video whose encoded audio must match
+  --no-audio                  Expect a video-only file (no audio stream)
+  --max-audio-drift <sec>     Allowed audio/video length difference (default: 0.25)
   --json                      Print the result as JSON
   --help, -h                  Show this help
 
@@ -34,6 +36,8 @@ function parseArgs(argv) {
     height: 1080,
     fps: 60,
     reference: undefined,
+    noAudio: false,
+    maxAudioDrift: 0.25,
     json: false,
     help: false,
   };
@@ -42,6 +46,7 @@ function parseArgs(argv) {
     '--width': 'width',
     '--height': 'height',
     '--fps': 'fps',
+    '--max-audio-drift': 'maxAudioDrift',
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -69,6 +74,8 @@ function parseArgs(argv) {
       const parsed = Number(value);
       if (!Number.isFinite(parsed)) fail(`${arg} must be a number.`);
       options[numeric[arg]] = parsed;
+    } else if (arg === '--no-audio') {
+      options.noAudio = true;
     } else if (arg === '--json') {
       options.json = true;
     } else if (arg === '--help' || arg === '-h') {
@@ -123,6 +130,8 @@ if (options.help) {
 }
 if (!options.video) fail(`--video is required.\n\n${USAGE}`);
 if (options.expectedDuration < 0) fail('Expected duration must be nonnegative.');
+if (options.noAudio && options.reference) fail('--reference cannot be combined with --no-audio.');
+if (options.maxAudioDrift < 0) fail('--max-audio-drift must be nonnegative.');
 if (options.width <= 0 || options.height <= 0 || options.fps <= 0) {
   fail('Dimensions and FPS must be positive.');
 }
@@ -147,22 +156,38 @@ try {
 const streams = Array.isArray(probe.streams) ? probe.streams : [];
 const videoStreams = streams.filter((stream) => stream.codec_type === 'video');
 const audioStreams = streams.filter((stream) => stream.codec_type === 'audio');
-if (videoStreams.length !== 1 || audioStreams.length !== 1) {
-  fail('Expected one video stream and one audio stream.');
+const expectedAudioStreams = options.noAudio ? 0 : 1;
+if (videoStreams.length !== 1 || audioStreams.length !== expectedAudioStreams) {
+  fail(
+    `Expected one video stream and ${expectedAudioStreams} audio stream(s); found ${videoStreams.length} and ${audioStreams.length}.`,
+  );
 }
 const video = videoStreams[0];
-const audio = audioStreams[0];
+const audio = audioStreams[0] ?? null;
 
 const rate = String(video.avg_frame_rate || '').split('/');
 if (rate.length !== 2 || Number(rate[1]) === 0) fail('Invalid average frame rate.');
 const fps = Number(rate[0]) / Number(rate[1]);
 if (!Number.isFinite(fps)) fail('Invalid average frame rate.');
 
-const duration = Number(probe.format && probe.format.duration);
-if (!Number.isFinite(duration)) fail('Could not read the format duration.');
+// The container duration includes AAC priming/padding, so a correct export is often a few
+// tens of milliseconds longer than its picture. Judge length by the video stream instead.
+const containerDuration = Number(probe.format && probe.format.duration);
+const videoStreamDuration = Number(video.duration);
+const duration = Number.isFinite(videoStreamDuration) ? videoStreamDuration : containerDuration;
+if (!Number.isFinite(duration)) fail('Could not read the video duration.');
 
-if (video.codec_name !== 'h264' || audio.codec_name !== 'aac') {
-  fail('Expected H.264 video and AAC audio.');
+if (video.codec_name !== 'h264') fail(`Expected H.264 video; found ${video.codec_name}.`);
+let audioDrift = null;
+if (audio) {
+  if (audio.codec_name !== 'aac') fail(`Expected AAC audio; found ${audio.codec_name}.`);
+  const audioDuration = Number(audio.duration);
+  if (Number.isFinite(audioDuration)) {
+    audioDrift = audioDuration - duration;
+    if (Math.abs(audioDrift) > options.maxAudioDrift) {
+      fail(`Audio and video lengths differ by ${audioDrift.toFixed(3)} s (limit ${options.maxAudioDrift} s).`);
+    }
+  }
 }
 if (Number(video.width) !== options.width || Number(video.height) !== options.height) {
   fail(`Unexpected dimensions: ${video.width}x${video.height}.`);
@@ -172,7 +197,7 @@ if (Math.abs(fps - options.fps) > 0.001) fail(`Unexpected FPS: ${fps}.`);
 const frames = video.nb_frames == null ? null : Number(video.nb_frames);
 if (options.expectedDuration > 0) {
   if (Math.abs(duration - options.expectedDuration) > 1 / options.fps + 0.001) {
-    fail(`Unexpected duration: ${duration} seconds.`);
+    fail(`Unexpected video duration: ${duration} seconds (expected ${options.expectedDuration}).`);
   }
   const expectedFrames = Math.round(options.expectedDuration * options.fps);
   if (!Number.isFinite(frames) || frames !== expectedFrames) {
@@ -182,7 +207,7 @@ if (options.expectedDuration > 0) {
 
 run(
   'ffmpeg',
-  ['-nostdin', '-hide_banner', '-loglevel', 'error', '-xerror', '-i', videoPath, '-map', '0:v:0', '-map', '0:a:0', '-f', 'null', '-'],
+  ['-nostdin', '-hide_banner', '-loglevel', 'error', '-xerror', '-i', videoPath, '-map', '0:v:0', ...(audio ? ['-map', '0:a:0'] : []), '-f', 'null', '-'],
   'Full audio/video decode failed',
 );
 
@@ -208,13 +233,15 @@ if (options.reference) {
 const result = {
   Video: videoPath,
   DurationSeconds: duration,
+  ContainerDurationSeconds: containerDuration,
+  AudioDriftSeconds: audioDrift,
   Dimensions: `${video.width}x${video.height}`,
   Fps: fps,
   Frames: frames,
   VideoCodec: video.codec_name,
-  AudioCodec: audio.codec_name,
-  SampleRate: Number(audio.sample_rate),
-  Channels: Number(audio.channels),
+  AudioCodec: audio ? audio.codec_name : null,
+  SampleRate: audio ? Number(audio.sample_rate) : null,
+  Channels: audio ? Number(audio.channels) : null,
   FullDecodePassed: true,
   ReferenceAudioIdentical: referenceAudioIdentical,
 };
@@ -227,7 +254,12 @@ if (options.json) {
   console.log(`Dimensions: ${result.Dimensions}`);
   console.log(`FPS: ${result.Fps}`);
   console.log(`Frames: ${result.Frames ?? 'unknown'}`);
-  console.log(`Codecs: ${result.VideoCodec} / ${result.AudioCodec} (${result.SampleRate} Hz, ${result.Channels} ch)`);
+  console.log(
+    audio
+      ? `Codecs: ${result.VideoCodec} / ${result.AudioCodec} (${result.SampleRate} Hz, ${result.Channels} ch)`
+      : `Codecs: ${result.VideoCodec} / no audio`,
+  );
+  if (audioDrift !== null) console.log(`Audio drift: ${audioDrift.toFixed(3)} s`);
   console.log('Full decode: passed');
   console.log(
     `Reference audio identical: ${
